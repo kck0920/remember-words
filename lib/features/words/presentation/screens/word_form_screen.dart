@@ -124,7 +124,7 @@ class _WordFormScreenState extends ConsumerState<WordFormScreen> {
                 labelText: '메모',
                 hintText: '추가 메모사항...',
               ),
-              maxLines: 3,
+              maxLines: 12,
             ),
             const SizedBox(height: 24),
             ElevatedButton(

@@ -5,6 +5,7 @@ Future<String?> pickJsonFile() async {
   final result = await FilePicker.platform.pickFiles(
     type: FileType.custom,
     allowedExtensions: ['json'],
+    withData: true,
   );
   if (result != null && result.files.isNotEmpty) {
     final file = result.files.first;
