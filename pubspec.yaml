@@ -27,8 +27,8 @@ dependencies:
   uuid: ^4.2.0
   
   # File Operations
-  share_plus: ^7.2.0
-  file_picker: ^6.1.0
+  share_plus: ^10.0.0
+  file_picker: ^8.0.0
   
   # Web
   web: ^1.1.0
