@@ -19,6 +19,7 @@ class _MeaningQuizScreenState extends ConsumerState<MeaningQuizScreen> {
   int? _selectedAnswer;
   bool _answered = false;
   late List<Word> _quizWords;
+  List<String> _currentOptions = [];
 
   @override
   void initState() {
@@ -27,6 +28,22 @@ class _MeaningQuizScreenState extends ConsumerState<MeaningQuizScreen> {
     if (_quizWords.length > 10) {
       _quizWords = _quizWords.sublist(0, 10);
     }
+    _generateOptions();
+  }
+
+  void _generateOptions() {
+    if (_quizWords.isEmpty) return;
+    
+    final correctAnswer = _quizWords[_currentIndex].korean;
+    final allKoreanWords = widget.words.map((w) => w.korean).toList();
+    allKoreanWords.remove(correctAnswer);
+    allKoreanWords.shuffle();
+    
+    final options = [correctAnswer];
+    options.addAll(allKoreanWords.take(3));
+    options.shuffle();
+    
+    _currentOptions = options;
   }
 
   void _selectAnswer(int index) {
@@ -37,7 +54,7 @@ class _MeaningQuizScreenState extends ConsumerState<MeaningQuizScreen> {
       _answered = true;
     });
 
-    final isCorrect = _getOptions()[index] == _quizWords[_currentIndex].korean;
+    final isCorrect = _currentOptions[index] == _quizWords[_currentIndex].korean;
     if (isCorrect) {
       _correctCount++;
     }
@@ -65,23 +82,11 @@ class _MeaningQuizScreenState extends ConsumerState<MeaningQuizScreen> {
         _currentIndex++;
         _selectedAnswer = null;
         _answered = false;
+        _generateOptions();
       });
     } else {
       _showResult();
     }
-  }
-
-  List<String> _getOptions() {
-    final correctAnswer = _quizWords[_currentIndex].korean;
-    final allKoreanWords = widget.words.map((w) => w.korean).toList();
-    allKoreanWords.remove(correctAnswer);
-    allKoreanWords.shuffle();
-    
-    final options = [correctAnswer];
-    options.addAll(allKoreanWords.take(3));
-    options.shuffle();
-    
-    return options;
   }
 
   void _showResult() {
@@ -131,6 +136,7 @@ class _MeaningQuizScreenState extends ConsumerState<MeaningQuizScreen> {
                 _selectedAnswer = null;
                 _answered = false;
                 _quizWords.shuffle();
+                _generateOptions();
               });
             },
             child: const Text('다시 하기'),
@@ -143,7 +149,7 @@ class _MeaningQuizScreenState extends ConsumerState<MeaningQuizScreen> {
   @override
   Widget build(BuildContext context) {
     final word = _quizWords[_currentIndex];
-    final options = _getOptions();
+    final options = _currentOptions;
 
     return Scaffold(
       appBar: AppBar(
