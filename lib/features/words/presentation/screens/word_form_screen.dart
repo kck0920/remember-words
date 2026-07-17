@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
@@ -30,6 +31,7 @@ class _WordFormScreenState extends ConsumerState<WordFormScreen> {
   late TextEditingController _memoController;
   late TextEditingController _tagController;
   int _difficulty = 3;
+  bool _isMemoPreview = false;
   List<String> _tags = [];
   Uint8List? _imageBytes;
   String? _imagePath;
@@ -142,14 +144,7 @@ class _WordFormScreenState extends ConsumerState<WordFormScreen> {
             const SizedBox(height: 16),
             _buildTagInput(),
             const SizedBox(height: 16),
-            TextFormField(
-              controller: _memoController,
-              decoration: const InputDecoration(
-                labelText: '메모',
-                hintText: '추가 메모사항...',
-              ),
-              maxLines: 12,
-            ),
+            _buildMemoField(),
             const SizedBox(height: 24),
             if (_imageBytes != null && _imageBytes!.isNotEmpty) ...[
               GestureDetector(
@@ -276,6 +271,116 @@ class _WordFormScreenState extends ConsumerState<WordFormScreen> {
       default:
         return Colors.orange;
     }
+  }
+
+  Widget _buildMemoField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text('메모'),
+            const SizedBox(width: 12),
+            Expanded(
+              child: SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment<bool>(
+                    value: false,
+                    label: Text('입력'),
+                    icon: Icon(Icons.edit, size: 16),
+                  ),
+                  ButtonSegment<bool>(
+                    value: true,
+                    label: Text('뷰'),
+                    icon: Icon(Icons.visibility, size: 16),
+                  ),
+                ],
+                selected: {_isMemoPreview},
+                onSelectionChanged: (selected) {
+                  setState(() {
+                    _isMemoPreview = selected.first;
+                  });
+                },
+                style: ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_isMemoPreview)
+          Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(minHeight: 150),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Theme.of(context).colorScheme.outline),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: _memoController.text.isEmpty
+                ? Text(
+                    '마크다운 미리보기',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  )
+                : Markdown(
+                    data: _memoController.text,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    styleSheet: MarkdownStyleSheet(
+                      p: const TextStyle(
+                        fontFamily:
+                            'Pretendard Variable, Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif',
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                      h1: const TextStyle(
+                        fontFamily:
+                            'Pretendard Variable, Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif',
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      h2: const TextStyle(
+                        fontFamily:
+                            'Pretendard Variable, Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif',
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      h3: const TextStyle(
+                        fontFamily:
+                            'Pretendard Variable, Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      code: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 13,
+                        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      ),
+                      blockquote: TextStyle(
+                        fontFamily:
+                            'Pretendard Variable, Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif',
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+          )
+        else
+          TextFormField(
+            controller: _memoController,
+            decoration: const InputDecoration(
+              hintText: '마크다운 형식으로 입력 가능...',
+            ),
+            maxLines: 12,
+            onChanged: (_) {
+              if (_isMemoPreview) setState(() {});
+            },
+          ),
+      ],
+    );
   }
 
   Widget _buildTagInput() {
