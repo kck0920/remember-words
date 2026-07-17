@@ -5,6 +5,8 @@ import '../../data/services/backup_service.dart';
 import '../../../words/presentation/screens/word_list_screen.dart';
 import '../../../review/data/models/review_card.dart';
 import '../../../review/presentation/screens/review_screen.dart';
+import '../../../quiz/presentation/screens/quiz_screen.dart';
+import '../../../matching/presentation/screens/matching_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -49,7 +51,7 @@ class SettingsScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.backup),
             title: const Text('내보내기'),
-            subtitle: const Text('단어장을 JSON 파일로 저장'),
+            subtitle: const Text('단어장을 ZIP 파일로 저장'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               _exportData(context, ref);
@@ -58,7 +60,7 @@ class SettingsScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.restore),
             title: const Text('가져오기'),
-            subtitle: const Text('JSON 파일에서 단어장 복원'),
+            subtitle: const Text('ZIP 파일에서 단어장 복원'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               _importData(context, ref);
@@ -257,6 +259,10 @@ class SettingsScreen extends ConsumerWidget {
       // Invalidate providers to refresh UI
       ref.invalidate(wordsProvider);
       ref.invalidate(filteredWordsProvider);
+      ref.invalidate(quizWordsProvider);
+      ref.invalidate(matchingWordsProvider);
+      ref.invalidate(reviewStatsProvider);
+      ref.invalidate(dueReviewCardsProvider);
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -293,6 +299,10 @@ class SettingsScreen extends ConsumerWidget {
               await repo.deleteAllWords();
               ref.invalidate(wordsProvider);
               ref.invalidate(filteredWordsProvider);
+              ref.invalidate(quizWordsProvider);
+              ref.invalidate(matchingWordsProvider);
+              ref.invalidate(reviewStatsProvider);
+              ref.invalidate(dueReviewCardsProvider);
               if (context.mounted) {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(

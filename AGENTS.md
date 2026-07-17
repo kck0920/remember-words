@@ -1,5 +1,9 @@
 # VocaTree — Agent Guide
 
+## Communication
+
+- **Always respond in Korean (한국어).** All explanations, comments, questions, and summaries must be in Korean.
+
 ## Quick start
 
 ```bash

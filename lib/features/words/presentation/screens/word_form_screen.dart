@@ -1,5 +1,12 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 import '../../data/models/word.dart';
 import '../../../review/data/models/review_card.dart';
 import '../../../review/presentation/screens/review_screen.dart';
@@ -24,6 +31,8 @@ class _WordFormScreenState extends ConsumerState<WordFormScreen> {
   late TextEditingController _tagController;
   int _difficulty = 3;
   List<String> _tags = [];
+  Uint8List? _imageBytes;
+  String? _imagePath;
 
   @override
   void initState() {
@@ -36,6 +45,21 @@ class _WordFormScreenState extends ConsumerState<WordFormScreen> {
     _tagController = TextEditingController();
     _difficulty = widget.word?.difficulty ?? 3;
     _tags = widget.word?.tags ?? [];
+    _imagePath = widget.word?.imagePath;
+    if (_imagePath != null) {
+      if (kIsWeb) {
+        try {
+          _imageBytes = base64Decode(_imagePath!);
+        } catch (_) {}
+      } else {
+        try {
+          final file = File(_imagePath!);
+          if (file.existsSync()) {
+            _imageBytes = file.readAsBytesSync();
+          }
+        } catch (_) {}
+      }
+    }
   }
 
   @override
@@ -127,6 +151,23 @@ class _WordFormScreenState extends ConsumerState<WordFormScreen> {
               maxLines: 12,
             ),
             const SizedBox(height: 24),
+            if (_imageBytes != null && _imageBytes!.isNotEmpty) ...[
+              GestureDetector(
+                onTap: () => _showImageDialog(_imageBytes!),
+                child: Image.memory(
+                  _imageBytes!,
+                  height: 150,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            ElevatedButton.icon(
+              icon: const Icon(Icons.photo),
+              label: const Text('이미지 선택'),
+              onPressed: _pickImage,
+            ),
+            const SizedBox(height: 8),
             ElevatedButton(
               onPressed: _saveWord,
               child: Text(isEditing ? '수정' : '추가'),
@@ -147,7 +188,7 @@ class _WordFormScreenState extends ConsumerState<WordFormScreen> {
           children: List.generate(5, (index) {
             final level = index + 1;
             final isSelected = _difficulty == level;
-            
+
             Color color;
             switch (level) {
               case 1:
@@ -290,10 +331,10 @@ class _WordFormScreenState extends ConsumerState<WordFormScreen> {
     final reviewRepo = ref.read(reviewRepositoryProvider);
     final reviewMethodValue = await reviewRepo.getSetting('review_method');
     final reviewMethod = reviewMethodValue == 'fixed' ? ReviewMethod.fixed : ReviewMethod.linear;
-    final fixedInterval = reviewMethodValue == 'fixed' 
+    final fixedInterval = reviewMethodValue == 'fixed'
         ? (int.tryParse(await reviewRepo.getSetting('fixed_interval_days') ?? '') ?? 7)
         : null;
-    
+
     if (widget.word != null) {
       final updatedWord = widget.word!.copyWith(
         english: _englishController.text.trim(),
@@ -303,6 +344,7 @@ class _WordFormScreenState extends ConsumerState<WordFormScreen> {
         tags: _tags,
         difficulty: _difficulty,
         memo: _memoController.text.trim(),
+        imagePath: _imagePath,
       );
       await repo.updateWord(updatedWord);
     } else {
@@ -314,6 +356,7 @@ class _WordFormScreenState extends ConsumerState<WordFormScreen> {
         tags: _tags,
         difficulty: _difficulty,
         memo: _memoController.text.trim(),
+        imagePath: _imagePath,
       );
       await repo.insertWord(newWord);
 
@@ -353,11 +396,83 @@ class _WordFormScreenState extends ConsumerState<WordFormScreen> {
     if (confirmed == true && mounted) {
       final repo = ref.read(wordRepositoryProvider);
       final reviewRepo = ref.read(reviewRepositoryProvider);
+      if (!kIsWeb && widget.word!.imagePath != null) {
+        try {
+          final imgFile = File(widget.word!.imagePath!);
+          if (imgFile.existsSync()) {
+            await imgFile.delete();
+          }
+        } catch (_) {}
+      }
       await reviewRepo.deleteReviewCardByWordId(widget.word!.id);
       await repo.deleteWord(widget.word!.id);
       if (mounted) {
         Navigator.pop(context);
       }
     }
+  }
+
+  Future<void> _pickImage() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'webp'],
+      withData: true,
+    );
+    if (result != null && result.files.isNotEmpty) {
+      final raw = result.files.first.bytes;
+      if (raw != null) {
+        final decoded = img.decodeImage(raw);
+        if (decoded != null) {
+          final resized = img.copyResize(decoded, width: 800);
+          final compressed = img.encodeJpg(resized, quality: 70);
+          final bytes = Uint8List.fromList(compressed);
+
+          if (kIsWeb) {
+            setState(() {
+              _imageBytes = bytes;
+              _imagePath = base64Encode(bytes);
+            });
+          } else {
+            final appDir = await getApplicationDocumentsDirectory();
+            final imagesDir = Directory('${appDir.path}/images');
+            if (!imagesDir.existsSync()) {
+              await imagesDir.create(recursive: true);
+            }
+            final filename = '${const Uuid().v4()}.jpg';
+            final file = File('${imagesDir.path}/$filename');
+            await file.writeAsBytes(bytes);
+
+            if (_imagePath != null) {
+              try {
+                final oldFile = File(_imagePath!);
+                if (oldFile.existsSync()) {
+                  await oldFile.delete();
+                }
+              } catch (_) {}
+            }
+
+            setState(() {
+              _imageBytes = bytes;
+              _imagePath = file.path;
+            });
+          }
+        }
+      }
+    }
+  }
+
+  void _showImageDialog(Uint8List bytes) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        insetPadding: EdgeInsets.zero,
+        child: InteractiveViewer(
+          child: Image.memory(
+            bytes,
+            fit: BoxFit.contain,
+          ),
+        ),
+      ),
+    );
   }
 }

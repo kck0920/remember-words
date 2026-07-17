@@ -163,16 +163,22 @@ class _WordMatchingScreenState extends ConsumerState<WordMatchingScreen>
           children: [
             // Game Board
             Expanded(
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
+              child: Center(
+                child: SizedBox(
+                  width: 360,
+                  child: GridView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    itemCount: _cards.length,
+                    itemBuilder: (context, index) {
+                      return _buildCard(index);
+                    },
+                  ),
                 ),
-                itemCount: _cards.length,
-                itemBuilder: (context, index) {
-                  return _buildCard(index);
-                },
               ),
             ),
             

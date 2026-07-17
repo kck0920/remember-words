@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vocatree/features/settings/data/services/backup_service.dart';
 import 'package:vocatree/features/words/data/models/word.dart';
 import 'package:vocatree/features/words/data/repositories/word_repository.dart';
+import 'package:vocatree/features/review/data/repositories/review_repository.dart';
+import 'package:vocatree/features/review/data/models/review_card.dart';
 
 class MockWordRepository extends WordRepository {
   final List<Word> _db = [];
@@ -25,14 +27,34 @@ class MockWordRepository extends WordRepository {
   }
 }
 
+class MockReviewRepository extends ReviewRepository {
+  final Map<String, String> _settings = {};
+
+  @override
+  Future<String?> getSetting(String key) async {
+    return _settings[key];
+  }
+
+  @override
+  Future<void> setSetting(String key, String value) async {
+    _settings[key] = value;
+  }
+
+  @override
+  Future<void> insertReviewCard(ReviewCard card) async {}
+}
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   group('BackupService Tests', () {
     late MockWordRepository mockRepo;
+    late MockReviewRepository mockReviewRepo;
     late BackupService backupService;
 
     setUp(() {
       mockRepo = MockWordRepository();
-      backupService = BackupService(mockRepo);
+      mockReviewRepo = MockReviewRepository();
+      backupService = BackupService(mockRepo, mockReviewRepo);
     });
 
     test('importBackupFromString inserts new words', () async {
