@@ -19,7 +19,6 @@ class FlashcardScreen extends ConsumerStatefulWidget {
 
 class _FlashcardScreenState extends ConsumerState<FlashcardScreen>
     with SingleTickerProviderStateMixin {
-  late PageController _pageController;
   late AnimationController _flipController;
   late Animation<double> _flipAnimation;
   
@@ -32,7 +31,6 @@ class _FlashcardScreenState extends ConsumerState<FlashcardScreen>
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
     _flipController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -44,12 +42,12 @@ class _FlashcardScreenState extends ConsumerState<FlashcardScreen>
 
   @override
   void dispose() {
-    _pageController.dispose();
     _flipController.dispose();
     super.dispose();
   }
 
   void _flipCard() {
+    if (_flipController.isAnimating) return;
     if (_flipController.isCompleted) {
       _flipController.reverse();
     } else {
@@ -72,10 +70,6 @@ class _FlashcardScreenState extends ConsumerState<FlashcardScreen>
         _isCorrect = null;
         _userInput = '';
       });
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
       _flipController.reset();
     } else {
       _showCompletionDialog();
