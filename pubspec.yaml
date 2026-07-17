@@ -34,6 +34,9 @@ dependencies:
   # Zip archive handling for export/import
   archive: ^3.3.7
   
+  # Markdown rendering
+  flutter_markdown: ^0.7.0
+  
   # Web
   web: ^1.1.0
 
