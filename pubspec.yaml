@@ -29,6 +29,10 @@ dependencies:
   # File Operations
   share_plus: ^10.0.0
   file_picker: ^8.0.0
+  # Image processing (resize/compress)
+  image: ^4.0.0
+  # Zip archive handling for export/import
+  archive: ^3.3.7
   
   # Web
   web: ^1.1.0

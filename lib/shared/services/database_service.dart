@@ -6,7 +6,7 @@ import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 class DatabaseService {
   static Database? _database;
   static const String _dbName = 'vocatree.db';
-  static const int _dbVersion = 1;
+  static const int _dbVersion = 3;
 
   // For testing - allows overriding the database instance
   static Database? _testDatabase;
@@ -33,36 +33,47 @@ class DatabaseService {
   static Future<Database> _initDatabase() async {
     if (kIsWeb) {
       final dbFactory = databaseFactoryFfiWeb;
-      return await dbFactory.openDatabase(
-        _dbName,
-        options: OpenDatabaseOptions(
-          version: _dbVersion,
-          onCreate: _createDatabase,
-        ),
-      );
+return await dbFactory.openDatabase(
+          _dbName,
+          options: OpenDatabaseOptions(
+            version: _dbVersion,
+            onCreate: _createDatabase,
+            onUpgrade: (db, oldVersion, newVersion) async {
+              if (oldVersion < 3) {
+                await db.execute('ALTER TABLE words ADD COLUMN image_path TEXT;');
+              }
+            },
+          ),
+        );
     }
     final String path = join(await getDatabasesPath(), _dbName);
     return await openDatabase(
       path,
       version: _dbVersion,
       onCreate: _createDatabase,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 3) {
+          await db.execute('ALTER TABLE words ADD COLUMN image_path TEXT;');
+        }
+      },
     );
   }
 
   static Future<void> _createDatabase(Database db, int version) async {
     await db.execute('''
-      CREATE TABLE words (
-        id TEXT PRIMARY KEY,
-        english TEXT NOT NULL,
-        korean TEXT NOT NULL,
-        example_sentence TEXT,
-        pronunciation TEXT,
-        tags TEXT,
-        difficulty INTEGER DEFAULT 3,
-        memo TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )
+        CREATE TABLE words (
+          id TEXT PRIMARY KEY,
+          english TEXT NOT NULL,
+          korean TEXT NOT NULL,
+          example_sentence TEXT,
+          pronunciation TEXT,
+          tags TEXT,
+          difficulty INTEGER DEFAULT 3,
+          memo TEXT,
+           image_path TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
     ''');
 
     await db.execute('''

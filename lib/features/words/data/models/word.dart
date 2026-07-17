@@ -1,5 +1,6 @@
 import 'package:uuid/uuid.dart';
 
+
 class Word {
   final String id;
   final String english;
@@ -9,6 +10,7 @@ class Word {
   final List<String> tags;
   final int difficulty; // 1-5
   final String? memo;
+  final String? imagePath;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -21,6 +23,7 @@ class Word {
     List<String>? tags,
     this.difficulty = 3,
     this.memo,
+    this.imagePath,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : id = id ?? const Uuid().v4(),
@@ -38,6 +41,7 @@ class Word {
       'tags': tags.join(','),
       'difficulty': difficulty,
       'memo': memo,
+      'image_path': imagePath,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -55,6 +59,7 @@ class Word {
           : [],
       difficulty: map['difficulty'] ?? 3,
       memo: map['memo'],
+      imagePath: map['image_path'],
       createdAt: DateTime.parse(map['created_at']),
       updatedAt: DateTime.parse(map['updated_at']),
     );
@@ -68,6 +73,7 @@ class Word {
     List<String>? tags,
     int? difficulty,
     String? memo,
+    String? imagePath,
   }) {
     return Word(
       id: id,
@@ -78,6 +84,7 @@ class Word {
       tags: tags ?? this.tags,
       difficulty: difficulty ?? this.difficulty,
       memo: memo ?? this.memo,
+      imagePath: imagePath ?? this.imagePath,
       createdAt: createdAt,
       updatedAt: DateTime.now(),
     );
