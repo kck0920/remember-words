@@ -6,7 +6,7 @@ import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 class DatabaseService {
   static Database? _database;
   static const String _dbName = 'vocatree.db';
-  static const int _dbVersion = 3;
+  static const int _dbVersion = 4;
 
   // For testing - allows overriding the database instance
   static Database? _testDatabase;
@@ -41,6 +41,12 @@ return await dbFactory.openDatabase(
             onUpgrade: (db, oldVersion, newVersion) async {
               if (oldVersion < 3) {
                 await db.execute('ALTER TABLE words ADD COLUMN image_path TEXT;');
+              }
+              if (oldVersion < 4) {
+                // SM-2 알고리즘 필드 추가
+                await db.execute('ALTER TABLE review_cards ADD COLUMN easiness_factor REAL DEFAULT 2.5;');
+                await db.execute('ALTER TABLE review_cards ADD COLUMN interval INTEGER DEFAULT 0;');
+                await db.execute('ALTER TABLE review_cards ADD COLUMN repetition INTEGER DEFAULT 0;');
               }
             },
           ),
@@ -85,6 +91,9 @@ return await dbFactory.openDatabase(
         next_review_date TEXT NOT NULL,
         review_count INTEGER DEFAULT 0,
         created_at TEXT NOT NULL,
+        easiness_factor REAL DEFAULT 2.5,
+        interval INTEGER DEFAULT 0,
+        repetition INTEGER DEFAULT 0,
         FOREIGN KEY (word_id) REFERENCES words (id) ON DELETE CASCADE
       )
     ''');

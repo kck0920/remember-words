@@ -80,9 +80,18 @@ class _FlashcardScreenState extends ConsumerState<FlashcardScreen>
     final repo = ref.read(reviewRepositoryProvider);
     final word = widget.words[_currentIndex];
     
+    // 리뷰 로그 기록
     await repo.logReview(
       wordId: word.id,
       isCorrect: isCorrect,
+    );
+    
+    // SM-2 알고리즘 적용
+    // 정답: quality=4, 오답: quality=1
+    final quality = isCorrect ? 4 : 1;
+    await repo.updateReviewCardWithSM2(
+      wordId: word.id,
+      quality: quality,
     );
   }
 

@@ -11,8 +11,14 @@ final reviewRepositoryProvider = Provider<ReviewRepository>((ref) => ReviewRepos
 final reviewMethodProvider = FutureProvider<ReviewMethod>((ref) async {
   final repo = ref.watch(reviewRepositoryProvider);
   final value = await repo.getSetting('review_method');
-  if (value == 'fixed') return ReviewMethod.fixed;
-  return ReviewMethod.linear;
+  switch (value) {
+    case 'fixed':
+      return ReviewMethod.fixed;
+    case 'sm2':
+      return ReviewMethod.sm2;
+    default:
+      return ReviewMethod.linear;
+  }
 });
 
 final fixedIntervalDaysProvider = FutureProvider<int?>((ref) async {
@@ -31,13 +37,44 @@ final reviewStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   return repo.getReviewStats();
 });
 
-class ReviewScreen extends ConsumerWidget {
+final hasReviewedTodayProvider = FutureProvider<bool>((ref) async {
+  final repo = ref.watch(reviewRepositoryProvider);
+  return repo.hasReviewedToday();
+});
+
+class ReviewScreen extends ConsumerStatefulWidget {
   const ReviewScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ReviewScreen> createState() => _ReviewScreenState();
+}
+
+class _ReviewScreenState extends ConsumerState<ReviewScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // 화면 초기화 시 리뷰카드 자동 생성
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureReviewCards();
+    });
+  }
+
+  Future<void> _ensureReviewCards() async {
+    final repo = ref.read(reviewRepositoryProvider);
+    final createdCount = await repo.ensureReviewCardsExist();
+    
+    if (createdCount > 0) {
+      // 리뷰카드가 생성되면 provider 갱신
+      ref.invalidate(dueReviewCardsProvider);
+      ref.invalidate(reviewStatsProvider);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final dueCardsAsync = ref.watch(dueReviewCardsProvider);
     final statsAsync = ref.watch(reviewStatsProvider);
+    final hasReviewedTodayAsync = ref.watch(hasReviewedTodayProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -60,7 +97,11 @@ class ReviewScreen extends ConsumerWidget {
             dueCardsAsync.when(
               data: (cards) {
                 if (cards.isEmpty) {
-                  return _buildEmptyState(context);
+                  return hasReviewedTodayAsync.when(
+                    data: (hasReviewed) => _buildEmptyState(context, hasReviewed),
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (_, _) => _buildEmptyState(context, false),
+                  );
                 }
                 return Column(
                   children: [
@@ -68,7 +109,7 @@ class ReviewScreen extends ConsumerWidget {
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
                       onPressed: () {
-                        _startReview(context, ref, cards);
+                        _startReview(context, cards);
                       },
                       icon: const Icon(Icons.play_arrow),
                       label: const Text('복습 시작하기'),
@@ -181,24 +222,24 @@ class ReviewScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildEmptyState(BuildContext context, bool hasReviewedToday) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.check_circle_outline,
+            hasReviewedToday ? Icons.check_circle : Icons.check_circle_outline,
             size: 80,
             color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
           Text(
-            '복습할 단어가 없습니다!',
+            hasReviewedToday ? '오늘 복습을 완료했습니다!' : '복습할 단어가 없습니다',
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
           Text(
-            '모든 단어를 복습했습니다',
+            hasReviewedToday ? '내일 다시 복습하세요' : '먼저 단어를 추가해주세요',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.grey,
             ),
@@ -208,7 +249,7 @@ class ReviewScreen extends ConsumerWidget {
     );
   }
 
-  void _startReview(BuildContext context, WidgetRef ref, List<ReviewCard> cards) async {
+  void _startReview(BuildContext context, List<ReviewCard> cards) async {
     final wordRepo = ref.read(wordRepositoryProvider);
     final words = <Word>[];
     
