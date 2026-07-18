@@ -20,6 +20,7 @@ class _MeaningQuizScreenState extends ConsumerState<MeaningQuizScreen> {
   bool _answered = false;
   late List<Word> _quizWords;
   List<String> _currentOptions = [];
+  DateTime? _questionStartTime;
 
   @override
   void initState() {
@@ -29,6 +30,7 @@ class _MeaningQuizScreenState extends ConsumerState<MeaningQuizScreen> {
       _quizWords = _quizWords.sublist(0, 10);
     }
     _generateOptions();
+    _questionStartTime = DateTime.now();
   }
 
   void _generateOptions() {
@@ -70,9 +72,14 @@ class _MeaningQuizScreenState extends ConsumerState<MeaningQuizScreen> {
 
   Future<void> _recordAnswer(bool isCorrect) async {
     final repo = ref.read(reviewRepositoryProvider);
+    final durationMs = _questionStartTime != null
+        ? DateTime.now().difference(_questionStartTime!).inMilliseconds
+        : null;
     await repo.logReview(
       wordId: _quizWords[_currentIndex].id,
       isCorrect: isCorrect,
+      studyMethod: 'meaning_quiz',
+      durationMs: durationMs,
     );
   }
 
@@ -83,6 +90,7 @@ class _MeaningQuizScreenState extends ConsumerState<MeaningQuizScreen> {
         _selectedAnswer = null;
         _answered = false;
         _generateOptions();
+        _questionStartTime = DateTime.now();
       });
     } else {
       _showResult();

@@ -5,14 +5,59 @@ import '../features/review/presentation/screens/review_screen.dart';
 import '../features/quiz/presentation/screens/quiz_screen.dart';
 import '../features/matching/presentation/screens/matching_screen.dart';
 import '../features/settings/presentation/screens/settings_screen.dart';
+import '../features/settings/data/services/backup_service.dart';
+import '../features/settings/data/services/review_reminder_service.dart';
 
 final currentTabIndexProvider = StateProvider<int>((ref) => 0);
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _triggerAutoBackup();
+    _checkReviewReminder();
+  }
+
+  Future<void> _triggerAutoBackup() async {
+    try {
+      final backupService = ref.read(backupServiceProvider);
+      final enabled = await backupService.isAutoBackupEnabled();
+      if (enabled) {
+        await backupService.autoBackup();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _checkReviewReminder() async {
+    try {
+      final reminderService = ref.read(reviewReminderServiceProvider);
+      final shouldShow = await reminderService.shouldShowReminder();
+      if (shouldShow && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('복습할 단어가 있습니다!'),
+            action: SnackBarAction(
+              label: '복습하기',
+              onPressed: () {
+                ref.read(currentTabIndexProvider.notifier).state = 1;
+              },
+            ),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final currentIndex = ref.watch(currentTabIndexProvider);
 
     return Scaffold(

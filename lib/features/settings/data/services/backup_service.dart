@@ -27,6 +27,89 @@ class BackupService {
 
   BackupService(this._wordRepository, this._reviewRepository);
 
+  /// 자동 백업: 앱 문서 디렉토리에 ZIP 저장
+  Future<String?> autoBackup() async {
+    if (kIsWeb) return null; // Web에서는 파일 시스템 접근 불가
+
+    final words = await _wordRepository.getAllWords();
+    if (words.isEmpty) return null;
+
+    final archive = Archive();
+
+    final jsonList = <Map<String, dynamic>>[];
+    for (final word in words) {
+      final wordMap = word.toMap();
+      final imagePath = word.imagePath;
+
+      if (imagePath != null && imagePath.isNotEmpty) {
+        try {
+          final file = File(imagePath);
+          if (file.existsSync()) {
+            final imageBytes = await file.readAsBytes();
+            final filename = '${word.id}.jpg';
+            archive.addFile(ArchiveFile('images/$filename', imageBytes.length, imageBytes));
+            wordMap['image_path'] = 'images/$filename';
+          }
+        } catch (_) {
+          wordMap['image_path'] = null;
+        }
+      } else {
+        wordMap['image_path'] = null;
+      }
+
+      jsonList.add(wordMap);
+    }
+
+    final jsonString = const JsonEncoder.withIndent('  ').convert(jsonList);
+    final jsonBytes = utf8.encode(jsonString);
+    archive.addFile(ArchiveFile('words.json', jsonBytes.length, jsonBytes));
+
+    final zipBytes = ZipEncoder().encode(archive);
+    if (zipBytes == null) return null;
+
+    final appDir = await getApplicationDocumentsDirectory();
+    final backupDir = Directory('${appDir.path}/backups');
+    if (!backupDir.existsSync()) {
+      await backupDir.create(recursive: true);
+    }
+
+    final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').substring(0, 19);
+    final backupPath = '${backupDir.path}/vocatree_$timestamp.zip';
+    final backupFile = File(backupPath);
+    await backupFile.writeAsBytes(Uint8List.fromList(zipBytes));
+
+    // 이전 자동 백업 정리 (최근 5개 유지)
+    await _cleanupOldBackups(backupDir);
+
+    return backupPath;
+  }
+
+  Future<void> _cleanupOldBackups(Directory backupDir) async {
+    final files = backupDir.listSync()
+        .whereType<File>()
+        .where((f) => f.path.contains('vocatree_') && f.path.endsWith('.zip'))
+        .toList()
+      ..sort((a, b) => b.path.compareTo(a.path));
+
+    // 최근 5개만 유지
+    for (final file in files.skip(5)) {
+      try {
+        await file.delete();
+      } catch (_) {}
+    }
+  }
+
+  /// 자동 백업이 활성화되어 있는지 확인
+  Future<bool> isAutoBackupEnabled() async {
+    final value = await _reviewRepository.getSetting('auto_backup_enabled');
+    return value == 'true';
+  }
+
+  /// 자동 백업 활성화/비활성화 설정
+  Future<void> setAutoBackupEnabled(bool enabled) async {
+    await _reviewRepository.setSetting('auto_backup_enabled', enabled ? 'true' : 'false');
+  }
+
   Future<int> exportBackup() async {
     final words = await _wordRepository.getAllWords();
     if (words.isEmpty) {

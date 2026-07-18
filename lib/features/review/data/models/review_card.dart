@@ -10,6 +10,7 @@ class ReviewCard {
   final String id;
   final String wordId;
   final ReviewMethod reviewMethod;
+  final ReviewMethod? overrideMethod; // 단어별 복습 방식 오버라이드
   final int? fixedIntervalDays;
   final DateTime nextReviewDate;
   final int reviewCount;
@@ -20,10 +21,14 @@ class ReviewCard {
   final int interval;         // 다음 복습까지의 일수
   final int repetition;       // 연속 정답 횟수
 
+  /// 실제 사용되는 복습 방식 (오버라이드 우선)
+  ReviewMethod get activeMethod => overrideMethod ?? reviewMethod;
+
   ReviewCard({
     String? id,
     required this.wordId,
     required this.reviewMethod,
+    this.overrideMethod,
     this.fixedIntervalDays,
     required this.nextReviewDate,
     this.reviewCount = 0,
@@ -38,11 +43,12 @@ class ReviewCard {
   static const List<int> linearSchedule = [1, 3, 7, 30];
 
   DateTime getNextReviewDate() {
-    if (reviewMethod == ReviewMethod.fixed && fixedIntervalDays != null) {
+    final active = activeMethod;
+    if (active == ReviewMethod.fixed && fixedIntervalDays != null) {
       return DateTime.now().add(Duration(days: fixedIntervalDays!));
     }
     
-    if (reviewMethod == ReviewMethod.sm2) {
+    if (active == ReviewMethod.sm2) {
       return DateTime.now().add(Duration(days: interval));
     }
     
@@ -57,6 +63,7 @@ class ReviewCard {
       id: id,
       wordId: wordId,
       reviewMethod: reviewMethod,
+      overrideMethod: overrideMethod,
       fixedIntervalDays: fixedIntervalDays,
       nextReviewDate: getNextReviewDate(),
       reviewCount: reviewCount + 1,
@@ -101,6 +108,7 @@ class ReviewCard {
       id: id,
       wordId: wordId,
       reviewMethod: reviewMethod,
+      overrideMethod: overrideMethod,
       fixedIntervalDays: fixedIntervalDays,
       nextReviewDate: DateTime.now().add(Duration(days: newInterval)),
       reviewCount: reviewCount + 1,
@@ -130,10 +138,26 @@ class ReviewCard {
         break;
     }
     
+    String? overrideMethodStr;
+    if (overrideMethod != null) {
+      switch (overrideMethod!) {
+        case ReviewMethod.linear:
+          overrideMethodStr = 'linear';
+          break;
+        case ReviewMethod.fixed:
+          overrideMethodStr = 'fixed';
+          break;
+        case ReviewMethod.sm2:
+          overrideMethodStr = 'sm2';
+          break;
+      }
+    }
+    
     return {
       'id': id,
       'word_id': wordId,
       'review_method': methodStr,
+      'override_method': overrideMethodStr,
       'fixed_interval_days': fixedIntervalDays,
       'next_review_date': nextReviewDate.toIso8601String(),
       'review_count': reviewCount,
@@ -159,11 +183,25 @@ class ReviewCard {
       default:
         method = ReviewMethod.linear;
     }
+
+    ReviewMethod? overrideMethod;
+    switch (map['override_method']) {
+      case 'linear':
+        overrideMethod = ReviewMethod.linear;
+        break;
+      case 'fixed':
+        overrideMethod = ReviewMethod.fixed;
+        break;
+      case 'sm2':
+        overrideMethod = ReviewMethod.sm2;
+        break;
+    }
     
     return ReviewCard(
       id: map['id'],
       wordId: map['word_id'],
       reviewMethod: method,
+      overrideMethod: overrideMethod,
       fixedIntervalDays: map['fixed_interval_days'],
       nextReviewDate: DateTime.parse(map['next_review_date']),
       reviewCount: map['review_count'] ?? 0,

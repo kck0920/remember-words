@@ -72,3 +72,17 @@ See `lib/main.dart:9-15` and `lib/shared/services/database_service.dart:17-33`. 
 - `PLAN.md` documents full architecture but some paths in tree diagram don't exist (no feature barrels, no `shared/widgets/`)
 - Riverpod providers are screen-local (defined in same file as screen)
 - DB factory **must be initialized before any DB call** (see `main.dart:9-15`)
+
+## Agent skills
+
+### Issue tracker
+
+이슈는 `.scratch/` 디렉토리의 로컬 마크다운 파일로 관리됩니다. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+기본 5개 트라이아지 역할 라벨 사용. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+단일 컨텍스트 (repo root에 CONTEXT.md + docs/adr/). See `docs/agents/domain.md`.

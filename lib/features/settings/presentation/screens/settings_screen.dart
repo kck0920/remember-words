@@ -2,17 +2,42 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app.dart';
 import '../../data/services/backup_service.dart';
+import '../../data/services/review_reminder_service.dart';
 import '../../../words/presentation/screens/word_list_screen.dart';
 import '../../../review/data/models/review_card.dart';
 import '../../../review/presentation/screens/review_screen.dart';
 import '../../../quiz/presentation/screens/quiz_screen.dart';
 import '../../../matching/presentation/screens/matching_screen.dart';
+import 'stats_screen.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _autoBackupEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAutoBackupSetting();
+  }
+
+  Future<void> _loadAutoBackupSetting() async {
+    final backupService = ref.read(backupServiceProvider);
+    final enabled = await backupService.isAutoBackupEnabled();
+    if (mounted) {
+      setState(() {
+        _autoBackupEnabled = enabled;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isDarkMode = ref.watch(darkModeProvider);
 
     return Scaffold(
@@ -33,6 +58,8 @@ class SettingsScreen extends ConsumerWidget {
               isDarkMode ? Icons.dark_mode : Icons.light_mode,
             ),
           ),
+          _buildThemeColorPicker(context, ref),
+
           const Divider(),
           
           _buildSectionHeader(context, '복습'),
@@ -45,6 +72,7 @@ class SettingsScreen extends ConsumerWidget {
               _showReviewSettingsDialog(context, ref);
             },
           ),
+          _buildReminderSettings(context, ref),
           const Divider(),
           
           _buildSectionHeader(context, '데이터 관리'),
@@ -64,6 +92,19 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               _importData(context, ref);
+            },
+          ),
+          _buildAutoBackupToggle(context, ref),
+          ListTile(
+            leading: const Icon(Icons.bar_chart),
+            title: const Text('학습 통계'),
+            subtitle: const Text('전체 학습 현황 보기'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const StatsScreen()),
+              );
             },
           ),
           const Divider(),
@@ -103,6 +144,144 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildAutoBackupToggle(BuildContext context, WidgetRef ref) {
+    final backupService = ref.read(backupServiceProvider);
+    return SwitchListTile(
+      title: const Text('자동 백업'),
+      subtitle: const Text('앱 시작 시 자동으로 백업'),
+      value: _autoBackupEnabled,
+      onChanged: (value) async {
+        await backupService.setAutoBackupEnabled(value);
+        setState(() {
+          _autoBackupEnabled = value;
+        });
+      },
+      secondary: const Icon(Icons.cloud_upload),
+    );
+  }
+
+  Widget _buildThemeColorPicker(BuildContext context, WidgetRef ref) {
+    final currentColor = ref.watch(primaryColorProvider);
+    return ListTile(
+      leading: const Icon(Icons.palette),
+      title: const Text('테마 색상'),
+      subtitle: const Text('주요 색상 변경'),
+      trailing: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          color: currentColor,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.grey),
+        ),
+      ),
+      onTap: () => _showColorPicker(context, ref),
+    );
+  }
+
+  void _showColorPicker(BuildContext context, WidgetRef ref) {
+    final colors = [
+      const Color(0xFF4CAF50), // Green
+      const Color(0xFF2196F3), // Blue
+      const Color(0xFFF44336), // Red
+      const Color(0xFFFF9800), // Orange
+      const Color(0xFF9C27B0), // Purple
+      const Color(0xFF00BCD4), // Cyan
+      const Color(0xFFE91E63), // Pink
+      const Color(0xFF3F51B5), // Indigo
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('테마 색상 선택'),
+        content: Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: colors.map((color) {
+            final isSelected = ref.read(primaryColorProvider) == color;
+            return GestureDetector(
+              onTap: () {
+                ref.read(primaryColorProvider.notifier).setPrimaryColor(color);
+                Navigator.pop(context);
+              },
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: isSelected
+                      ? Border.all(color: Colors.black, width: 3)
+                      : null,
+                ),
+                child: isSelected
+                    ? const Icon(Icons.check, color: Colors.white)
+                    : null,
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildReminderSettings(BuildContext context, WidgetRef ref) {
+    final reminderService = ref.read(reviewReminderServiceProvider);
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait([
+        reminderService.isReminderEnabled(),
+        reminderService.getReminderTime(),
+      ]),
+      builder: (context, snapshot) {
+        final isEnabled = snapshot.data?[0] as bool? ?? false;
+        final time = snapshot.data?[1] as String? ?? '09:00';
+        return ExpansionTile(
+          leading: const Icon(Icons.notifications),
+          title: const Text('복습 알림'),
+          subtitle: Text(isEnabled ? '$time 알림' : '알림 비활성화'),
+          children: [
+            SwitchListTile(
+              title: const Text('알림 활성화'),
+              value: isEnabled,
+              onChanged: (value) async {
+                await reminderService.setReminderEnabled(value);
+                if (context.mounted) {
+                  setState(() {});
+                }
+              },
+            ),
+            ListTile(
+              title: const Text('알림 시간'),
+              trailing: Text(time),
+              onTap: isEnabled ? () => _showTimePicker(context, ref, reminderService, time) : null,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showTimePicker(BuildContext context, WidgetRef ref, ReviewReminderService service, String currentTime) async {
+    final parts = currentTime.split(':');
+    final initialTime = TimeOfDay(
+      hour: int.parse(parts[0]),
+      minute: int.parse(parts[1]),
+    );
+
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: initialTime,
+    );
+
+    if (picked != null && context.mounted) {
+      final timeStr = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+      await service.setReminderTime(timeStr);
+      setState(() {});
+    }
+  }
+
   void _showReviewSettingsDialog(BuildContext context, WidgetRef ref) async {
     final repo = ref.read(reviewRepositoryProvider);
     final currentMethodValue = await repo.getSetting('review_method');
@@ -125,43 +304,33 @@ class SettingsScreen extends ConsumerWidget {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: const Text('복습 방식 설정'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              RadioListTile<ReviewMethod>(
-                title: const Text('레이니어'),
-                subtitle: const Text('1일 → 3일 → 7일 → 30일'),
-                value: ReviewMethod.linear,
-                groupValue: selectedMethod,
-                onChanged: (value) {
-                  if (value != null) {
-                    setDialogState(() => selectedMethod = value);
-                  }
-                },
-              ),
-              RadioListTile<ReviewMethod>(
-                title: const Text('고정 간격'),
-                subtitle: const Text('매일/2일/3일/7일/14일/30일 중 선택'),
-                value: ReviewMethod.fixed,
-                groupValue: selectedMethod,
-                onChanged: (value) {
-                  if (value != null) {
-                    setDialogState(() => selectedMethod = value);
-                  }
-                },
-              ),
-              RadioListTile<ReviewMethod>(
-                title: const Text('SM-2 (지능형)'),
-                subtitle: const Text('학습 상태에 따라 간격 자동 조절'),
-                value: ReviewMethod.sm2,
-                groupValue: selectedMethod,
-                onChanged: (value) {
-                  if (value != null) {
-                    setDialogState(() => selectedMethod = value);
-                  }
-                },
-              ),
-            ],
+          content: RadioGroup<ReviewMethod>(
+            groupValue: selectedMethod,
+            onChanged: (value) {
+              if (value != null) {
+                setDialogState(() => selectedMethod = value);
+              }
+            },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const RadioListTile<ReviewMethod>(
+                  title: Text('레이니어'),
+                  subtitle: Text('1일 → 3일 → 7일 → 30일'),
+                  value: ReviewMethod.linear,
+                ),
+                const RadioListTile<ReviewMethod>(
+                  title: Text('고정 간격'),
+                  subtitle: Text('매일/2일/3일/7일/14일/30일 중 선택'),
+                  value: ReviewMethod.fixed,
+                ),
+                const RadioListTile<ReviewMethod>(
+                  title: Text('SM-2 (지능형)'),
+                  subtitle: Text('학습 상태에 따라 간격 자동 조절'),
+                  value: ReviewMethod.sm2,
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -209,16 +378,24 @@ class SettingsScreen extends ConsumerWidget {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: const Text('고정 간격 선택'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              RadioListTile<int>(title: const Text('1일마다'), value: 1, groupValue: selectedDays, onChanged: (value) { if (value != null) setDialogState(() => selectedDays = value); }),
-              RadioListTile<int>(title: const Text('2일마다'), value: 2, groupValue: selectedDays, onChanged: (value) { if (value != null) setDialogState(() => selectedDays = value); }),
-              RadioListTile<int>(title: const Text('3일마다'), value: 3, groupValue: selectedDays, onChanged: (value) { if (value != null) setDialogState(() => selectedDays = value); }),
-              RadioListTile<int>(title: const Text('7일마다'), value: 7, groupValue: selectedDays, onChanged: (value) { if (value != null) setDialogState(() => selectedDays = value); }),
-              RadioListTile<int>(title: const Text('14일마다'), value: 14, groupValue: selectedDays, onChanged: (value) { if (value != null) setDialogState(() => selectedDays = value); }),
-              RadioListTile<int>(title: const Text('30일마다'), value: 30, groupValue: selectedDays, onChanged: (value) { if (value != null) setDialogState(() => selectedDays = value); }),
-            ],
+          content: RadioGroup<int>(
+            groupValue: selectedDays,
+            onChanged: (value) {
+              if (value != null) {
+                setDialogState(() => selectedDays = value);
+              }
+            },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const RadioListTile<int>(title: Text('1일마다'), value: 1),
+                const RadioListTile<int>(title: Text('2일마다'), value: 2),
+                const RadioListTile<int>(title: Text('3일마다'), value: 3),
+                const RadioListTile<int>(title: Text('7일마다'), value: 7),
+                const RadioListTile<int>(title: Text('14일마다'), value: 14),
+                const RadioListTile<int>(title: Text('30일마다'), value: 30),
+              ],
+            ),
           ),
           actions: [
             TextButton(

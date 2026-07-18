@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import '../models/review_card.dart';
+import '../models/study_log.dart';
 import '../../../../shared/services/database_service.dart';
 import '../../../words/data/repositories/word_repository.dart';
 
@@ -92,14 +93,19 @@ class ReviewRepository {
   Future<void> logReview({
     required String wordId,
     required bool isCorrect,
+    String? studyMethod,
+    int? durationMs,
+    String? answerType,
   }) async {
+    final log = StudyLog.create(
+      wordId: wordId,
+      isCorrect: isCorrect,
+      studyMethod: studyMethod,
+      durationMs: durationMs,
+      answerType: answerType,
+    );
     final db = await DatabaseService.database;
-    await db.insert('review_logs', {
-      'id': DateTime.now().millisecondsSinceEpoch.toString(),
-      'word_id': wordId,
-      'reviewed_at': DateTime.now().toIso8601String(),
-      'is_correct': isCorrect ? 1 : 0,
-    });
+    await db.insert('review_logs', log.toMap());
   }
 
   /// 오늘 복습한 기록이 있는지 확인
@@ -116,6 +122,29 @@ class ReviewRepository {
     
     final count = result.first['count'] as int;
     return count > 0;
+  }
+
+  /// 특정 단어의 학습 이력 조회
+  Future<List<StudyLog>> getStudyLogsByWordId(String wordId) async {
+    final db = await DatabaseService.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'review_logs',
+      where: 'word_id = ?',
+      whereArgs: [wordId],
+      orderBy: 'reviewed_at DESC',
+    );
+    return maps.map((map) => StudyLog.fromMap(map)).toList();
+  }
+
+  /// 전체 학습 이력 조회
+  Future<List<StudyLog>> getAllStudyLogs({int? limit}) async {
+    final db = await DatabaseService.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'review_logs',
+      orderBy: 'reviewed_at DESC',
+      limit: limit,
+    );
+    return maps.map((map) => StudyLog.fromMap(map)).toList();
   }
 
   /// SM-2 알고리즘에 따라 리뷰카드 업데이트

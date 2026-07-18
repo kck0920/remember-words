@@ -9,6 +9,7 @@ import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../../data/models/word.dart';
+import '../../data/repositories/word_repository.dart';
 import '../../../review/data/models/review_card.dart';
 import '../../../review/presentation/screens/review_screen.dart';
 import 'word_list_screen.dart';
@@ -33,6 +34,7 @@ class _WordFormScreenState extends ConsumerState<WordFormScreen> {
   int _difficulty = 3;
   bool _isMemoPreview = false;
   List<String> _tags = [];
+  List<String> _allTags = [];
   Uint8List? _imageBytes;
   String? _imagePath;
 
@@ -47,6 +49,7 @@ class _WordFormScreenState extends ConsumerState<WordFormScreen> {
     _tagController = TextEditingController();
     _difficulty = widget.word?.difficulty ?? 3;
     _tags = widget.word?.tags ?? [];
+    _loadAllTags();
     _imagePath = widget.word?.imagePath;
     if (_imagePath != null) {
       if (kIsWeb) {
@@ -61,6 +64,15 @@ class _WordFormScreenState extends ConsumerState<WordFormScreen> {
           }
         } catch (_) {}
       }
+    }
+  }
+
+  Future<void> _loadAllTags() async {
+    final tags = await WordRepository().getAllTags();
+    if (mounted) {
+      setState(() {
+        _allTags = tags;
+      });
     }
   }
 
@@ -405,21 +417,44 @@ class _WordFormScreenState extends ConsumerState<WordFormScreen> {
               );
             }),
             SizedBox(
-              width: 150,
-              child: TextField(
-                controller: _tagController,
-                decoration: const InputDecoration(
-                  hintText: '태그 추가...',
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-                onSubmitted: (value) {
-                  if (value.isNotEmpty && !_tags.contains(value)) {
+              width: 180,
+              child: Autocomplete<String>(
+                optionsBuilder: (TextEditingValue textEditingValue) {
+                  if (textEditingValue.text.isEmpty) {
+                    return const Iterable<String>.empty();
+                  }
+                  final input = textEditingValue.text.toLowerCase();
+                  return _allTags.where((tag) =>
+                    tag.toLowerCase().contains(input) && !_tags.contains(tag)
+                  );
+                },
+                onSelected: (String value) {
+                  if (!_tags.contains(value)) {
                     setState(() {
                       _tags.add(value);
                       _tagController.clear();
                     });
                   }
+                },
+                fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
+                  _tagController = controller;
+                  return TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: const InputDecoration(
+                      hintText: '태그 추가...',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    onSubmitted: (value) {
+                      if (value.isNotEmpty && !_tags.contains(value)) {
+                        setState(() {
+                          _tags.add(value);
+                          controller.clear();
+                        });
+                      }
+                    },
+                  );
                 },
               ),
             ),

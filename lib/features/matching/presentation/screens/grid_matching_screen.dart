@@ -16,6 +16,8 @@ class _GridMatchingScreenState extends ConsumerState<GridMatchingScreen> {
   late List<_GridItem> _items;
   _GridItem? _firstSelected;
   int _matchedCount = 0;
+  int _totalPairs = 6;
+  late int _crossAxisCount;
 
   @override
   void initState() {
@@ -25,7 +27,9 @@ class _GridMatchingScreenState extends ConsumerState<GridMatchingScreen> {
 
   void _initializeGame() {
     final selectedWords = List.from(widget.words)..shuffle();
-    final gameWords = selectedWords.take(4).toList();
+    final pairCount = selectedWords.length.clamp(3, 6);
+    final gameWords = selectedWords.take(pairCount).toList();
+    _totalPairs = pairCount;
 
     _items = [];
     for (final word in gameWords) {
@@ -45,6 +49,16 @@ class _GridMatchingScreenState extends ConsumerState<GridMatchingScreen> {
       ));
     }
     _items.shuffle();
+
+    final itemCount = _items.length;
+    if (itemCount <= 8) {
+      _crossAxisCount = 4;
+    } else if (itemCount <= 12) {
+      _crossAxisCount = 3;
+    } else {
+      _crossAxisCount = 4;
+    }
+
     _matchedCount = 0;
     _firstSelected = null;
   }
@@ -59,17 +73,15 @@ class _GridMatchingScreenState extends ConsumerState<GridMatchingScreen> {
         item.isSelected = true;
       } else {
         if (_firstSelected!.id == item.id && _firstSelected!.type != item.type) {
-          // Match found
           _firstSelected!.isMatched = true;
           _firstSelected!.isSelected = false;
           item.isMatched = true;
           _matchedCount++;
 
-          if (_matchedCount == 4) {
+          if (_matchedCount == _totalPairs) {
             _showCompletionDialog();
           }
         } else {
-          // No match
           _firstSelected!.isSelected = false;
         }
         _firstSelected = null;
@@ -110,13 +122,12 @@ class _GridMatchingScreenState extends ConsumerState<GridMatchingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('그리드 매칭 ($_matchedCount/4)'),
+        title: Text('그리드 매칭 ($_matchedCount/$_totalPairs)'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Instructions
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -138,12 +149,10 @@ class _GridMatchingScreenState extends ConsumerState<GridMatchingScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            
-            // Grid
             Expanded(
               child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: _crossAxisCount,
                   crossAxisSpacing: 8,
                   mainAxisSpacing: 8,
                 ),
@@ -153,8 +162,6 @@ class _GridMatchingScreenState extends ConsumerState<GridMatchingScreen> {
                 },
               ),
             ),
-            
-            // Reset Button
             Padding(
               padding: const EdgeInsets.only(top: 16),
               child: OutlinedButton.icon(

@@ -71,27 +71,34 @@ class WordListScreen extends ConsumerWidget {
               ),
             );
           } else {
-            return ListView.builder(
-              padding: const EdgeInsets.all(8),
-              itemCount: words.length,
-              itemBuilder: (context, index) {
-                return WordCard(
-                  word: words[index],
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => WordFormScreen(word: words[index]),
-                      ),
-                    ).then((_) => ref.invalidate(filteredWordsProvider));
-                  },
-                  onDelete: () async {
-                    final repo = ref.read(wordRepositoryProvider);
-                    await repo.deleteWord(words[index].id);
-                    ref.invalidate(filteredWordsProvider);
-                  },
-                );
-              },
+            return Column(
+              children: [
+                _buildDashboardSummary(context, ref, words),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(8),
+                    itemCount: words.length,
+                    itemBuilder: (context, index) {
+                      return WordCard(
+                        word: words[index],
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => WordFormScreen(word: words[index]),
+                            ),
+                          ).then((_) => ref.invalidate(filteredWordsProvider));
+                        },
+                        onDelete: () async {
+                          final repo = ref.read(wordRepositoryProvider);
+                          await repo.deleteWord(words[index].id);
+                          ref.invalidate(filteredWordsProvider);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
             );
           }
         },
@@ -109,6 +116,61 @@ class WordListScreen extends ConsumerWidget {
         },
         child: const Icon(Icons.add),
       ),
+    );
+  }
+
+  Widget _buildDashboardSummary(BuildContext context, WidgetRef ref, List<Word> words) {
+    final totalWords = words.length;
+    final taggedWords = words.where((w) => w.tags.isNotEmpty).length;
+    final difficultWords = words.where((w) => w.difficulty >= 4).length;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).colorScheme.primary,
+            Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildStatItem(context, Icons.book, '$totalWords', '전체 단어'),
+          _buildStatItem(context, Icons.label, '$taggedWords', '태그 사용'),
+          _buildStatItem(context, Icons.star, '$difficultWords', '어려운 단어'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(BuildContext context, IconData icon, String value, String label) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: Colors.white, size: 24),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.8),
+            fontSize: 12,
+          ),
+        ),
+      ],
     );
   }
 

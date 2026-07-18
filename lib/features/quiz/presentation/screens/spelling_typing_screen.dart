@@ -4,23 +4,24 @@ import '../../../words/data/models/word.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../review/presentation/screens/review_screen.dart';
 
-class FillBlankQuizScreen extends ConsumerStatefulWidget {
+class SpellingTypingScreen extends ConsumerStatefulWidget {
   final List<Word> words;
 
-  const FillBlankQuizScreen({super.key, required this.words});
+  const SpellingTypingScreen({super.key, required this.words});
 
   @override
-  ConsumerState<FillBlankQuizScreen> createState() => _FillBlankQuizScreenState();
+  ConsumerState<SpellingTypingScreen> createState() => _SpellingTypingScreenState();
 }
 
-class _FillBlankQuizScreenState extends ConsumerState<FillBlankQuizScreen> {
+class _SpellingTypingScreenState extends ConsumerState<SpellingTypingScreen> {
   int _currentIndex = 0;
   int _correctCount = 0;
   String _userInput = '';
   bool _answered = false;
+  int _tolerance = 1;
   late List<Word> _quizWords;
   final TextEditingController _controller = TextEditingController();
-  DateTime? _questionStartTime;
+  final Stopwatch _stopwatch = Stopwatch();
 
   @override
   void initState() {
@@ -29,13 +30,57 @@ class _FillBlankQuizScreenState extends ConsumerState<FillBlankQuizScreen> {
     if (_quizWords.length > 10) {
       _quizWords = _quizWords.sublist(0, 10);
     }
-    _questionStartTime = DateTime.now();
+    _stopwatch.start();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _stopwatch.stop();
     super.dispose();
+  }
+
+  int _levenshteinDistance(String a, String b) {
+    a = a.toLowerCase();
+    b = b.toLowerCase();
+    if (a.isEmpty) return b.length;
+    if (b.isEmpty) return a.length;
+
+    List<List<int>> matrix = List.generate(
+      a.length + 1,
+      (i) => List.generate(b.length + 1, (j) => 0),
+    );
+
+    for (int i = 0; i <= a.length; i++) {
+      matrix[i][0] = i;
+    }
+    for (int j = 0; j <= b.length; j++) {
+      matrix[0][j] = j;
+    }
+
+    for (int i = 1; i <= a.length; i++) {
+      for (int j = 1; j <= b.length; j++) {
+        int cost = a[i - 1] == b[j - 1] ? 0 : 1;
+        matrix[i][j] = [
+          matrix[i - 1][j] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j - 1] + cost,
+        ].reduce((a, b) => a < b ? a : b);
+      }
+    }
+
+    return matrix[a.length][b.length];
+  }
+
+  bool _isWithinTolerance(String input, String target) {
+    final normalizedInput = input.trim().toLowerCase();
+    final normalizedTarget = target.trim().toLowerCase();
+
+    if (normalizedInput.isEmpty) return false;
+    if (normalizedInput == normalizedTarget) return true;
+
+    final distance = _levenshteinDistance(normalizedInput, normalizedTarget);
+    return distance <= _tolerance;
   }
 
   void _checkAnswer() {
@@ -45,9 +90,11 @@ class _FillBlankQuizScreenState extends ConsumerState<FillBlankQuizScreen> {
       _answered = true;
     });
 
-    final isCorrect = _userInput.trim().toLowerCase() == 
-        _quizWords[_currentIndex].english.toLowerCase();
-    
+    final isCorrect = _isWithinTolerance(
+      _userInput,
+      _quizWords[_currentIndex].english,
+    );
+
     if (isCorrect) {
       _correctCount++;
     }
@@ -63,14 +110,10 @@ class _FillBlankQuizScreenState extends ConsumerState<FillBlankQuizScreen> {
 
   Future<void> _recordAnswer(bool isCorrect) async {
     final repo = ref.read(reviewRepositoryProvider);
-    final durationMs = _questionStartTime != null
-        ? DateTime.now().difference(_questionStartTime!).inMilliseconds
-        : null;
     await repo.logReview(
       wordId: _quizWords[_currentIndex].id,
       isCorrect: isCorrect,
-      studyMethod: 'fill_blank',
-      durationMs: durationMs,
+      studyMethod: 'spelling_typing',
     );
   }
 
@@ -80,7 +123,6 @@ class _FillBlankQuizScreenState extends ConsumerState<FillBlankQuizScreen> {
         _currentIndex++;
         _userInput = '';
         _answered = false;
-        _questionStartTime = DateTime.now();
       });
       _controller.clear();
     } else {
@@ -89,13 +131,17 @@ class _FillBlankQuizScreenState extends ConsumerState<FillBlankQuizScreen> {
   }
 
   void _showResult() {
+    _stopwatch.stop();
+    final elapsed = _stopwatch.elapsed;
     final accuracy = (_correctCount / _quizWords.length * 100).round();
-    
+    final minutes = elapsed.inMinutes;
+    final seconds = elapsed.inSeconds % 60;
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('퀴즈 완료!'),
+        title: const Text('철자 타이핑 완료!'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -115,6 +161,11 @@ class _FillBlankQuizScreenState extends ConsumerState<FillBlankQuizScreen> {
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: accuracy >= 80 ? Colors.green : Colors.orange,
               ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '소요 시간: $minutes분 $seconds초',
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
           ],
         ),
@@ -137,6 +188,8 @@ class _FillBlankQuizScreenState extends ConsumerState<FillBlankQuizScreen> {
                 _quizWords.shuffle();
               });
               _controller.clear();
+              _stopwatch.reset();
+              _stopwatch.start();
             },
             child: const Text('다시 하기'),
           ),
@@ -148,29 +201,46 @@ class _FillBlankQuizScreenState extends ConsumerState<FillBlankQuizScreen> {
   @override
   Widget build(BuildContext context) {
     final word = _quizWords[_currentIndex];
-    final hasExampleSentence = word.exampleSentence != null && word.exampleSentence!.isNotEmpty;
-    final sentence = hasExampleSentence
-        ? word.exampleSentence!
-        : 'The word "${word.english}" is ___';
-    final blankSentence = hasExampleSentence
-        ? sentence.replaceAll(
-            RegExp(word.english, caseSensitive: false),
-            '_____',
-          )
-        : sentence;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${_currentIndex + 1} / ${_quizWords.length}'),
+        title: const Text('철자 타이핑'),
         actions: [
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Text(
-                '정답: $_correctCount',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+          PopupMenuButton<int>(
+            icon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.tune),
+                const SizedBox(width: 4),
+                Text(
+                  '허용: $_tolerance',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
             ),
+            onSelected: (value) {
+              setState(() {
+                _tolerance = value;
+              });
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 0,
+                child: Text('정확히 일치 (허용 없음)'),
+              ),
+              const PopupMenuItem(
+                value: 1,
+                child: Text('1글자 오탈 허용'),
+              ),
+              const PopupMenuItem(
+                value: 2,
+                child: Text('2글자 오탈 허용'),
+              ),
+              const PopupMenuItem(
+                value: 3,
+                child: Text('3글자 오탈 허용'),
+              ),
+            ],
           ),
         ],
       ),
@@ -190,24 +260,27 @@ class _FillBlankQuizScreenState extends ConsumerState<FillBlankQuizScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      blankSentence,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontStyle: FontStyle.italic,
+                    if (word.exampleSentence != null && word.exampleSentence!.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        word.exampleSentence!,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
-                    ),
+                    ],
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 24),
-            
+
             TextField(
               controller: _controller,
               decoration: const InputDecoration(
-                labelText: '영어 단어 입력',
+                labelText: '영어 단어를 입력하세요',
                 hintText: '정답을 입력하세요',
               ),
               onChanged: (value) {
@@ -215,20 +288,21 @@ class _FillBlankQuizScreenState extends ConsumerState<FillBlankQuizScreen> {
               },
               onSubmitted: (_) => _checkAnswer(),
               enabled: !_answered,
+              autofocus: true,
             ),
             const SizedBox(height: 16),
-            
+
             ElevatedButton(
               onPressed: _answered ? null : _checkAnswer,
               child: const Text('확인'),
             ),
-            
+
             if (_answered) ...[
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: _userInput.trim().toLowerCase() == word.english.toLowerCase()
+                  color: _isWithinTolerance(_userInput, word.english)
                       ? AppColors.correctAnswer.withValues(alpha: 0.2)
                       : AppColors.wrongAnswer.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
@@ -239,20 +313,20 @@ class _FillBlankQuizScreenState extends ConsumerState<FillBlankQuizScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          _userInput.trim().toLowerCase() == word.english.toLowerCase()
+                          _isWithinTolerance(_userInput, word.english)
                               ? Icons.check_circle
                               : Icons.cancel,
-                          color: _userInput.trim().toLowerCase() == word.english.toLowerCase()
+                          color: _isWithinTolerance(_userInput, word.english)
                               ? AppColors.correctAnswer
                               : AppColors.wrongAnswer,
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          _userInput.trim().toLowerCase() == word.english.toLowerCase()
+                          _isWithinTolerance(_userInput, word.english)
                               ? '정답입니다!'
                               : '오답입니다',
                           style: TextStyle(
-                            color: _userInput.trim().toLowerCase() == word.english.toLowerCase()
+                            color: _isWithinTolerance(_userInput, word.english)
                                 ? AppColors.correctAnswer
                                 : AppColors.wrongAnswer,
                             fontWeight: FontWeight.bold,
@@ -260,7 +334,7 @@ class _FillBlankQuizScreenState extends ConsumerState<FillBlankQuizScreen> {
                         ),
                       ],
                     ),
-                    if (_userInput.trim().toLowerCase() != word.english.toLowerCase()) ...[
+                    if (!_isWithinTolerance(_userInput, word.english)) ...[
                       const SizedBox(height: 8),
                       Text(
                         '정답: ${word.english}',
@@ -269,6 +343,16 @@ class _FillBlankQuizScreenState extends ConsumerState<FillBlankQuizScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      if (_userInput.trim().isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '입력: $_userInput (편집거리: ${_levenshteinDistance(_userInput, word.english)})',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
                     ],
                   ],
                 ),

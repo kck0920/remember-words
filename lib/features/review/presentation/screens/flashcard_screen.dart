@@ -27,6 +27,7 @@ class _FlashcardScreenState extends ConsumerState<FlashcardScreen>
   FlashcardMode _mode = FlashcardMode.basic;
   String _userInput = '';
   bool? _isCorrect;
+  DateTime? _reviewStartTime;
 
   @override
   void initState() {
@@ -38,6 +39,7 @@ class _FlashcardScreenState extends ConsumerState<FlashcardScreen>
     _flipAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _flipController, curve: Curves.easeInOut),
     );
+    _reviewStartTime = DateTime.now();
   }
 
   @override
@@ -60,7 +62,11 @@ class _FlashcardScreenState extends ConsumerState<FlashcardScreen>
 
   void _nextCard({bool? isCorrect}) async {
     if (isCorrect != null) {
-      await _recordReview(isCorrect);
+      final durationMs = _reviewStartTime != null
+          ? DateTime.now().difference(_reviewStartTime!).inMilliseconds
+          : null;
+      final answerType = _mode == FlashcardMode.basic ? 'swipe' : 'typing';
+      await _recordReview(isCorrect, durationMs: durationMs, answerType: answerType);
     }
 
     if (_currentIndex < widget.words.length - 1) {
@@ -69,6 +75,7 @@ class _FlashcardScreenState extends ConsumerState<FlashcardScreen>
         _isShowingFront = true;
         _isCorrect = null;
         _userInput = '';
+        _reviewStartTime = DateTime.now();
       });
       _flipController.reset();
     } else {
@@ -76,7 +83,7 @@ class _FlashcardScreenState extends ConsumerState<FlashcardScreen>
     }
   }
 
-  Future<void> _recordReview(bool isCorrect) async {
+  Future<void> _recordReview(bool isCorrect, {int? durationMs, String? answerType}) async {
     final repo = ref.read(reviewRepositoryProvider);
     final word = widget.words[_currentIndex];
     
@@ -84,6 +91,9 @@ class _FlashcardScreenState extends ConsumerState<FlashcardScreen>
     await repo.logReview(
       wordId: word.id,
       isCorrect: isCorrect,
+      studyMethod: 'flashcard',
+      durationMs: durationMs,
+      answerType: answerType,
     );
     
     // SM-2 알고리즘 적용

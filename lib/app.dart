@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/app_colors.dart';
 import 'home/home_screen.dart';
 import 'features/review/data/repositories/review_repository.dart';
 
@@ -12,12 +13,28 @@ class VocaTreeApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDarkMode = ref.watch(darkModeProvider);
+    final primaryColor = ref.watch(primaryColorProvider);
+    
+    final lightTheme = AppTheme.lightTheme.copyWith(
+      colorScheme: AppTheme.lightTheme.colorScheme.copyWith(
+        primary: primaryColor,
+      ),
+      appBarTheme: AppTheme.lightTheme.appBarTheme.copyWith(
+        backgroundColor: primaryColor,
+      ),
+    );
+    
+    final darkTheme = AppTheme.darkTheme.copyWith(
+      colorScheme: AppTheme.darkTheme.colorScheme.copyWith(
+        primary: primaryColor,
+      ),
+    );
     
     return MaterialApp(
       title: 'VocaTree',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
+      theme: lightTheme,
+      darkTheme: darkTheme,
       themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
       home: const HomeScreen(),
     );
@@ -45,3 +62,27 @@ class DarkModeNotifier extends StateNotifier<bool> {
     state = value;
   }
 }
+
+final primaryColorProvider = StateNotifierProvider<PrimaryColorNotifier, Color>((ref) {
+  return PrimaryColorNotifier();
+});
+
+class PrimaryColorNotifier extends StateNotifier<Color> {
+  PrimaryColorNotifier() : super(AppColors.primary) {
+    _loadPrimaryColor();
+  }
+
+  Future<void> _loadPrimaryColor() async {
+    final value = await _reviewRepo.getSetting('primary_color');
+    if (value != null) {
+      state = Color(int.parse(value));
+    }
+  }
+
+  Future<void> setPrimaryColor(Color color) async {
+    await _reviewRepo.setSetting('primary_color', '0x${color.toARGB32().toRadixString(16).padLeft(8, '0')}');
+    state = color;
+  }
+}
+
+

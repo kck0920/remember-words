@@ -267,10 +267,11 @@ void main() {
   });
 
   group('ReviewMethod Enum', () {
-    test('has linear and fixed values', () {
-      expect(ReviewMethod.values.length, 2);
+    test('has linear, fixed, and sm2 values', () {
+      expect(ReviewMethod.values.length, 3);
       expect(ReviewMethod.values, contains(ReviewMethod.linear));
       expect(ReviewMethod.values, contains(ReviewMethod.fixed));
+      expect(ReviewMethod.values, contains(ReviewMethod.sm2));
     });
   });
 }

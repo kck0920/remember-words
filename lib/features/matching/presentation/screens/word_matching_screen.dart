@@ -19,6 +19,7 @@ class _WordMatchingScreenState extends ConsumerState<WordMatchingScreen>
   int? _secondSelectedIndex;
   bool _isProcessing = false;
   int _matchedPairs = 0;
+  int _totalPairs = 4;
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
 
@@ -43,7 +44,17 @@ class _WordMatchingScreenState extends ConsumerState<WordMatchingScreen>
 
   void _initializeGame() {
     final selectedWords = List.from(widget.words)..shuffle();
-    final gameWords = selectedWords.take(4).toList();
+    // 단어 수에 따라 카드 수 자동 조절
+    int pairCount;
+    if (selectedWords.length >= 16) {
+      pairCount = 8;
+    } else if (selectedWords.length >= 8) {
+      pairCount = 6;
+    } else {
+      pairCount = 4;
+    }
+    final gameWords = selectedWords.take(pairCount).toList();
+    _totalPairs = pairCount;
 
     _cards = [];
     for (final word in gameWords) {
@@ -105,7 +116,7 @@ class _WordMatchingScreenState extends ConsumerState<WordMatchingScreen>
       _secondSelectedIndex = null;
       _isProcessing = false;
 
-      if (_matchedPairs == 4) {
+      if (_matchedPairs == _totalPairs) {
         _showCompletionDialog();
       }
     } else {
@@ -155,7 +166,7 @@ class _WordMatchingScreenState extends ConsumerState<WordMatchingScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('매칭 게임 ($_matchedPairs/4)'),
+        title: Text('매칭 게임 ($_matchedPairs/$_totalPairs)'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -167,7 +178,7 @@ class _WordMatchingScreenState extends ConsumerState<WordMatchingScreen>
                 child: SizedBox(
                   width: 360,
                   child: GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
+                    physics: const BouncingScrollPhysics(),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: 12,

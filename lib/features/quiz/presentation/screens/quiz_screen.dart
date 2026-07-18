@@ -4,6 +4,8 @@ import '../../../words/data/models/word.dart';
 import '../../../words/presentation/screens/word_list_screen.dart';
 import 'meaning_quiz_screen.dart';
 import 'fill_blank_quiz_screen.dart';
+import 'meaning_typing_screen.dart';
+import 'spelling_typing_screen.dart';
 
 final quizWordsProvider = FutureProvider<List<Word>>((ref) async {
   final repo = ref.watch(wordRepositoryProvider);
@@ -102,6 +104,38 @@ class QuizScreen extends ConsumerWidget {
                 context,
                 MaterialPageRoute(
                   builder: (context) => FillBlankQuizScreen(words: words),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+
+          _buildQuizOption(
+            context,
+            title: '뜻 타이핑',
+            description: '영어 단어를 보고 한국어 뜻을 타이핑하세요 (부분 일치 허용)',
+            icon: Icons.keyboard,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MeaningTypingScreen(words: words),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+
+          _buildQuizOption(
+            context,
+            title: '철자 타이핑',
+            description: '한국어 뜻을 보고 영어 단어를 타이핑하세요 (오타 허용)',
+            icon: Icons.spellcheck,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SpellingTypingScreen(words: words),
                 ),
               );
             },

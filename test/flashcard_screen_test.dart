@@ -10,8 +10,25 @@ class FakeReviewRepository extends ReviewRepository {
   final List<Map<String, dynamic>> loggedReviews = [];
 
   @override
-  Future<void> logReview({required String wordId, required bool isCorrect}) async {
-    loggedReviews.add({'wordId': wordId, 'isCorrect': isCorrect});
+  Future<void> logReview({
+    required String wordId,
+    required bool isCorrect,
+    String? studyMethod,
+    int? durationMs,
+    String? answerType,
+  }) async {
+    loggedReviews.add({
+      'wordId': wordId,
+      'isCorrect': isCorrect,
+      'studyMethod': studyMethod,
+      'durationMs': durationMs,
+      'answerType': answerType,
+    });
+  }
+
+  @override
+  Future<void> updateReviewCardWithSM2({required String wordId, required int quality}) async {
+    // No-op for tests
   }
 }
 

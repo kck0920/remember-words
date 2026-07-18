@@ -6,7 +6,7 @@ import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 class DatabaseService {
   static Database? _database;
   static const String _dbName = 'vocatree.db';
-  static const int _dbVersion = 4;
+  static const int _dbVersion = 6;
 
   // For testing - allows overriding the database instance
   static Database? _testDatabase;
@@ -48,6 +48,16 @@ return await dbFactory.openDatabase(
                 await db.execute('ALTER TABLE review_cards ADD COLUMN interval INTEGER DEFAULT 0;');
                 await db.execute('ALTER TABLE review_cards ADD COLUMN repetition INTEGER DEFAULT 0;');
               }
+              if (oldVersion < 5) {
+                // StudyLog 필드 확장
+                await db.execute('ALTER TABLE review_logs ADD COLUMN study_method TEXT;');
+                await db.execute('ALTER TABLE review_logs ADD COLUMN duration_ms INTEGER;');
+                await db.execute('ALTER TABLE review_logs ADD COLUMN answer_type TEXT;');
+              }
+              if (oldVersion < 6) {
+                // 단어별 복습 방식 오버라이드
+                await db.execute('ALTER TABLE review_cards ADD COLUMN override_method TEXT;');
+              }
             },
           ),
         );
@@ -60,6 +70,22 @@ return await dbFactory.openDatabase(
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 3) {
           await db.execute('ALTER TABLE words ADD COLUMN image_path TEXT;');
+        }
+        if (oldVersion < 4) {
+          // SM-2 알고리즘 필드 추가
+          await db.execute('ALTER TABLE review_cards ADD COLUMN easiness_factor REAL DEFAULT 2.5;');
+          await db.execute('ALTER TABLE review_cards ADD COLUMN interval INTEGER DEFAULT 0;');
+          await db.execute('ALTER TABLE review_cards ADD COLUMN repetition INTEGER DEFAULT 0;');
+        }
+        if (oldVersion < 5) {
+          // StudyLog 필드 확장
+          await db.execute('ALTER TABLE review_logs ADD COLUMN study_method TEXT;');
+          await db.execute('ALTER TABLE review_logs ADD COLUMN duration_ms INTEGER;');
+          await db.execute('ALTER TABLE review_logs ADD COLUMN answer_type TEXT;');
+        }
+        if (oldVersion < 6) {
+          // 단어별 복습 방식 오버라이드
+          await db.execute('ALTER TABLE review_cards ADD COLUMN override_method TEXT;');
         }
       },
     );
@@ -87,6 +113,7 @@ return await dbFactory.openDatabase(
         id TEXT PRIMARY KEY,
         word_id TEXT NOT NULL,
         review_method TEXT NOT NULL,
+        override_method TEXT,
         fixed_interval_days INTEGER,
         next_review_date TEXT NOT NULL,
         review_count INTEGER DEFAULT 0,
@@ -104,6 +131,9 @@ return await dbFactory.openDatabase(
         word_id TEXT NOT NULL,
         reviewed_at TEXT NOT NULL,
         is_correct INTEGER NOT NULL,
+        study_method TEXT,
+        duration_ms INTEGER,
+        answer_type TEXT,
         FOREIGN KEY (word_id) REFERENCES words (id) ON DELETE CASCADE
       )
     ''');
