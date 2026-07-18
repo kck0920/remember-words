@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import '../models/review_card.dart';
 import '../../../../shared/services/database_service.dart';
+import '../../../words/data/repositories/word_repository.dart';
 
 class ReviewRepository {
   Future<String?> getSetting(String key) async {
@@ -99,6 +100,83 @@ class ReviewRepository {
       'reviewed_at': DateTime.now().toIso8601String(),
       'is_correct': isCorrect ? 1 : 0,
     });
+  }
+
+  /// 오늘 복습한 기록이 있는지 확인
+  Future<bool> hasReviewedToday() async {
+    final db = await DatabaseService.database;
+    final today = DateTime.now();
+    final startOfDay = DateTime(today.year, today.month, today.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+    
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM review_logs WHERE reviewed_at >= ? AND reviewed_at < ?',
+      [startOfDay.toIso8601String(), endOfDay.toIso8601String()],
+    );
+    
+    final count = result.first['count'] as int;
+    return count > 0;
+  }
+
+  /// SM-2 알고리즘에 따라 리뷰카드 업데이트
+  /// quality: 0-5 (0=가장 나쁨, 5=가장 좋음)
+  Future<void> updateReviewCardWithSM2({
+    required String wordId,
+    required int quality,
+  }) async {
+    final card = await getReviewCardByWordId(wordId);
+    if (card == null) return;
+    
+    final updatedCard = card.updateWithSM2(quality);
+    await updateReviewCard(updatedCard);
+  }
+
+  /// 리뷰카드가 없는 단어들을 찾아서 자동으로 생성
+  Future<int> ensureReviewCardsExist() async {
+    final wordRepo = WordRepository();
+    final allWords = await wordRepo.getAllWords();
+    final existingCards = await getAllReviewCards();
+    
+    // 리뷰카드가 없는 단어 ID 목록
+    final existingWordIds = existingCards.map((card) => card.wordId).toSet();
+    final wordsNeedingCards = allWords.where((word) => !existingWordIds.contains(word.id)).toList();
+    
+    if (wordsNeedingCards.isEmpty) return 0;
+    
+    // 현재 설정된 복습 방식 가져오기
+    final methodValue = await getSetting('review_method');
+    ReviewMethod method;
+    switch (methodValue) {
+      case 'fixed':
+        method = ReviewMethod.fixed;
+        break;
+      case 'sm2':
+        method = ReviewMethod.sm2;
+        break;
+      default:
+        method = ReviewMethod.linear;
+    }
+    
+    // 고정 간격 설정
+    int? fixedDays;
+    if (method == ReviewMethod.fixed) {
+      final fixedValue = await getSetting('fixed_interval_days');
+      fixedDays = fixedValue != null ? int.tryParse(fixedValue) : 7;
+    }
+    
+    // 리뷰카드 생성 (오늘 바로 복습 가능하도록)
+    for (final word in wordsNeedingCards) {
+      final card = ReviewCard(
+        wordId: word.id,
+        reviewMethod: method,
+        fixedIntervalDays: fixedDays,
+        nextReviewDate: DateTime.now(), // 오늘 바로 복습 가능
+        reviewCount: 0,
+      );
+      await insertReviewCard(card);
+    }
+    
+    return wordsNeedingCards.length;
   }
 
   Future<Map<String, dynamic>> getReviewStats() async {

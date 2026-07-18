@@ -106,9 +106,17 @@ class SettingsScreen extends ConsumerWidget {
   void _showReviewSettingsDialog(BuildContext context, WidgetRef ref) async {
     final repo = ref.read(reviewRepositoryProvider);
     final currentMethodValue = await repo.getSetting('review_method');
-    var selectedMethod = currentMethodValue == 'fixed'
-        ? ReviewMethod.fixed
-        : ReviewMethod.linear;
+    ReviewMethod selectedMethod;
+    switch (currentMethodValue) {
+      case 'fixed':
+        selectedMethod = ReviewMethod.fixed;
+        break;
+      case 'sm2':
+        selectedMethod = ReviewMethod.sm2;
+        break;
+      default:
+        selectedMethod = ReviewMethod.linear;
+    }
     
     if (!context.mounted) return;
 
@@ -142,6 +150,17 @@ class SettingsScreen extends ConsumerWidget {
                   }
                 },
               ),
+              RadioListTile<ReviewMethod>(
+                title: const Text('SM-2 (지능형)'),
+                subtitle: const Text('학습 상태에 따라 간격 자동 조절'),
+                value: ReviewMethod.sm2,
+                groupValue: selectedMethod,
+                onChanged: (value) {
+                  if (value != null) {
+                    setDialogState(() => selectedMethod = value);
+                  }
+                },
+              ),
             ],
           ),
           actions: [
@@ -151,10 +170,18 @@ class SettingsScreen extends ConsumerWidget {
             ),
             FilledButton(
               onPressed: () async {
-                await repo.setSetting(
-                  'review_method',
-                  selectedMethod == ReviewMethod.fixed ? 'fixed' : 'linear',
-                );
+                String methodStr;
+                switch (selectedMethod) {
+                  case ReviewMethod.fixed:
+                    methodStr = 'fixed';
+                    break;
+                  case ReviewMethod.sm2:
+                    methodStr = 'sm2';
+                    break;
+                  default:
+                    methodStr = 'linear';
+                }
+                await repo.setSetting('review_method', methodStr);
                 ref.invalidate(reviewMethodProvider);
                 if (!context.mounted) return;
                 Navigator.pop(context);
