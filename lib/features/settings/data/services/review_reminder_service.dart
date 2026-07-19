@@ -1,11 +1,43 @@
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../review/data/repositories/review_repository.dart';
 import '../../../review/presentation/screens/review_screen.dart';
 
 class ReviewReminderService {
   final ReviewRepository _reviewRepository;
+  final FlutterLocalNotificationsPlugin _notificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
   ReviewReminderService(this._reviewRepository);
+
+  /// 알림 서비스 초기화
+  Future<void> init() async {
+    const LinuxInitializationSettings initializationSettingsLinux =
+        LinuxInitializationSettings(
+      defaultActionName: 'Open VocaTree',
+    );
+
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const DarwinInitializationSettings initializationSettingsDarwin =
+        DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+
+    const InitializationSettings initializationSettings = InitializationSettings(
+      linux: initializationSettingsLinux,
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsDarwin,
+      macOS: initializationSettingsDarwin,
+    );
+
+    await _notificationsPlugin.initialize(
+      settings: initializationSettings,
+    );
+  }
 
   /// 알림이 활성화되어 있는지 확인
   Future<bool> isReminderEnabled() async {
@@ -39,6 +71,33 @@ class ReviewReminderService {
 
     final dueCards = await _reviewRepository.getDueReviewCards();
     return dueCards.isNotEmpty;
+  }
+
+  /// 시스템 알림 표시
+  Future<void> showNotification() async {
+    const LinuxNotificationDetails linuxNotificationDetails = LinuxNotificationDetails();
+    const AndroidNotificationDetails androidNotificationDetails =
+        AndroidNotificationDetails(
+      'vocatree_reminder',
+      '복습 알림',
+      channelDescription: 'VocaTree 단어 복습 알림 채널',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+
+    const NotificationDetails notificationDetails = NotificationDetails(
+      linux: linuxNotificationDetails,
+      android: androidNotificationDetails,
+      iOS: DarwinNotificationDetails(),
+      macOS: DarwinNotificationDetails(),
+    );
+
+    await _notificationsPlugin.show(
+      id: 0,
+      title: '복습할 시간입니다!',
+      body: '오늘 아직 학습하지 않은 단어가 있습니다. 복습을 완료해 보세요.',
+      notificationDetails: notificationDetails,
+    );
   }
 }
 

@@ -38,11 +38,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _checkReviewReminder() async {
     try {
       final reminderService = ref.read(reviewReminderServiceProvider);
+      await reminderService.init();
       final shouldShow = await reminderService.shouldShowReminder();
       if (shouldShow && mounted) {
+        await reminderService.showNotification();
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('복습할 단어가 있습니다!'),
+            content: const Text('복습할 단어가 있습니다! (알림 발송됨)'),
             action: SnackBarAction(
               label: '복습하기',
               onPressed: () {
