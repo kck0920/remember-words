@@ -9,13 +9,18 @@ import 'core/utils/platform_helper.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  if (!kIsWeb && isDesktop) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
+  try {
+    if (!kIsWeb && isDesktop) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
+    
+    // Initialize database
+    await DatabaseService.database;
+  } catch (e, stack) {
+    print("CRITICAL DATABASE ERROR: $e");
+    print(stack);
   }
-  
-  // Initialize database
-  await DatabaseService.database;
   
   runApp(
     const ProviderScope(
