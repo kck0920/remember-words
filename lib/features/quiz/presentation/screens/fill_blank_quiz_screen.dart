@@ -145,6 +145,20 @@ class _FillBlankQuizScreenState extends ConsumerState<FillBlankQuizScreen> {
     );
   }
 
+  String _getMaskedExample(String sentence, String word) {
+    if (sentence.isEmpty || word.isEmpty) return sentence;
+    final regex = RegExp(r'\b' + RegExp.escape(word) + r'\w*', caseSensitive: false);
+    return sentence.replaceAllMapped(regex, (match) {
+      final matchedText = match.group(0)!;
+      return matchedText.split('').map((char) {
+        if (RegExp(r'[a-zA-Z0-9]').hasMatch(char)) {
+          return '_';
+        }
+        return char;
+      }).join('');
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final word = _quizWords[_currentIndex];
@@ -152,12 +166,7 @@ class _FillBlankQuizScreenState extends ConsumerState<FillBlankQuizScreen> {
     final sentence = hasExampleSentence
         ? word.exampleSentence!
         : 'The word "${word.english}" is ___';
-    final blankSentence = hasExampleSentence
-        ? sentence.replaceAll(
-            RegExp(word.english, caseSensitive: false),
-            '_____',
-          )
-        : sentence;
+    final blankSentence = _getMaskedExample(sentence, word.english);
 
     return Scaffold(
       appBar: AppBar(
@@ -192,7 +201,7 @@ class _FillBlankQuizScreenState extends ConsumerState<FillBlankQuizScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      blankSentence,
+                      _answered ? sentence : blankSentence,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         fontStyle: FontStyle.italic,
                       ),
