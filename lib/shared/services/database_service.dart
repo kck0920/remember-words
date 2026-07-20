@@ -30,33 +30,41 @@ class DatabaseService {
     _testDatabase = null;
   }
 
+  static Future<void> _addColumnSafe(Database db, String table, String column, String type, {String? defaultValue}) async {
+    try {
+      final defaultClause = defaultValue != null ? ' DEFAULT $defaultValue' : '';
+      await db.execute('ALTER TABLE $table ADD COLUMN $column $type$defaultClause;');
+    } catch (e) {
+      if (!e.toString().contains('duplicate column name')) {
+        rethrow;
+      }
+    }
+  }
+
   static Future<Database> _initDatabase() async {
     if (kIsWeb) {
       final dbFactory = databaseFactoryFfiWeb;
-return await dbFactory.openDatabase(
+      return await dbFactory.openDatabase(
           _dbName,
           options: OpenDatabaseOptions(
             version: _dbVersion,
             onCreate: _createDatabase,
             onUpgrade: (db, oldVersion, newVersion) async {
               if (oldVersion < 3) {
-                await db.execute('ALTER TABLE words ADD COLUMN image_path TEXT;');
+                await _addColumnSafe(db, 'words', 'image_path', 'TEXT');
               }
               if (oldVersion < 4) {
-                // SM-2 알고리즘 필드 추가
-                await db.execute('ALTER TABLE review_cards ADD COLUMN easiness_factor REAL DEFAULT 2.5;');
-                await db.execute('ALTER TABLE review_cards ADD COLUMN interval INTEGER DEFAULT 0;');
-                await db.execute('ALTER TABLE review_cards ADD COLUMN repetition INTEGER DEFAULT 0;');
+                await _addColumnSafe(db, 'review_cards', 'easiness_factor', 'REAL', defaultValue: '2.5');
+                await _addColumnSafe(db, 'review_cards', 'interval', 'INTEGER', defaultValue: '0');
+                await _addColumnSafe(db, 'review_cards', 'repetition', 'INTEGER', defaultValue: '0');
               }
               if (oldVersion < 5) {
-                // StudyLog 필드 확장
-                await db.execute('ALTER TABLE review_logs ADD COLUMN study_method TEXT;');
-                await db.execute('ALTER TABLE review_logs ADD COLUMN duration_ms INTEGER;');
-                await db.execute('ALTER TABLE review_logs ADD COLUMN answer_type TEXT;');
+                await _addColumnSafe(db, 'review_logs', 'study_method', 'TEXT');
+                await _addColumnSafe(db, 'review_logs', 'duration_ms', 'INTEGER');
+                await _addColumnSafe(db, 'review_logs', 'answer_type', 'TEXT');
               }
               if (oldVersion < 6) {
-                // 단어별 복습 방식 오버라이드
-                await db.execute('ALTER TABLE review_cards ADD COLUMN override_method TEXT;');
+                await _addColumnSafe(db, 'review_cards', 'override_method', 'TEXT');
               }
             },
           ),
@@ -69,23 +77,20 @@ return await dbFactory.openDatabase(
       onCreate: _createDatabase,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 3) {
-          await db.execute('ALTER TABLE words ADD COLUMN image_path TEXT;');
+          await _addColumnSafe(db, 'words', 'image_path', 'TEXT');
         }
         if (oldVersion < 4) {
-          // SM-2 알고리즘 필드 추가
-          await db.execute('ALTER TABLE review_cards ADD COLUMN easiness_factor REAL DEFAULT 2.5;');
-          await db.execute('ALTER TABLE review_cards ADD COLUMN interval INTEGER DEFAULT 0;');
-          await db.execute('ALTER TABLE review_cards ADD COLUMN repetition INTEGER DEFAULT 0;');
+          await _addColumnSafe(db, 'review_cards', 'easiness_factor', 'REAL', defaultValue: '2.5');
+          await _addColumnSafe(db, 'review_cards', 'interval', 'INTEGER', defaultValue: '0');
+          await _addColumnSafe(db, 'review_cards', 'repetition', 'INTEGER', defaultValue: '0');
         }
         if (oldVersion < 5) {
-          // StudyLog 필드 확장
-          await db.execute('ALTER TABLE review_logs ADD COLUMN study_method TEXT;');
-          await db.execute('ALTER TABLE review_logs ADD COLUMN duration_ms INTEGER;');
-          await db.execute('ALTER TABLE review_logs ADD COLUMN answer_type TEXT;');
+          await _addColumnSafe(db, 'review_logs', 'study_method', 'TEXT');
+          await _addColumnSafe(db, 'review_logs', 'duration_ms', 'INTEGER');
+          await _addColumnSafe(db, 'review_logs', 'answer_type', 'TEXT');
         }
         if (oldVersion < 6) {
-          // 단어별 복습 방식 오버라이드
-          await db.execute('ALTER TABLE review_cards ADD COLUMN override_method TEXT;');
+          await _addColumnSafe(db, 'review_cards', 'override_method', 'TEXT');
         }
       },
     );
